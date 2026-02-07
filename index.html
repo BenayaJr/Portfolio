@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Benaya | Systems & Chaos</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vanilla-tilt/1.7.0/vanilla-tilt.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root { --bg: #F4E4D3; --accent: #FF6B6B; }
+        body { font-family: 'Space Mono', monospace; background-color: var(--bg); overflow-x: hidden; cursor: crosshair; user-select: none; transition: background 0.3s; }
+        h1, h2, h3 { font-family: 'Archivo Black', sans-serif; }
+
+        /* NEURAL BACKGROUND */
+        #neural-canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; opacity: 0.4; pointer-events: none; }
+        
+        .neo-box { box-shadow: 8px 8px 0px 0px #000; border: 3px solid #000; background: white; transform-style: preserve-3d; transform: perspective(1000px); transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+
+        /* TERMINAL BOX */
+        .terminal-box { 
+            box-shadow: 10px 10px 0px 0px #000; border: 3px solid #000; background: #0f0f0f; color: #0f0; padding: 2rem; position: relative;
+        }
+        .terminal-box::before {
+            content: "/// SYSTEM_LOG"; position: absolute; top: -15px; left: 20px; background: #0f0f0f; padding: 0 10px; font-size: 0.8rem; font-weight: bold; border: 1px solid #0f0;
+        }
+
+        /* TYPEWRITER EFFECT */
+        .typewriter h1 {
+            overflow: hidden; white-space: nowrap; border-right: .15em solid orange;
+            animation: typing 3.5s steps(40, end), blink-caret .75s step-end infinite;
+            display: inline-block;
+        }
+        @keyframes typing { from { width: 0 } to { width: 100% } }
+        @keyframes blink-caret { from, to { border-color: transparent } 50% { border-color: black; } }
+
+        /* SCROLL REVEAL */
+        .reveal { opacity: 0; transform: translateY(50px); transition: all 0.8s ease-out; }
+        .reveal.active { opacity: 1; transform: translateY(0); }
+
+        /* MARQUEE (TEXT) */
+        .marquee { white-space: nowrap; overflow: hidden; background: #000; color: #fff; padding: 10px 0; font-weight: bold; text-transform: uppercase; }
+        .marquee div { display: inline-block; animation: marquee 20s linear infinite; }
+        @keyframes marquee { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
+
+        /* GALLERY STREAM ANIMATIONS */
+        .gallery-container { overflow: hidden; white-space: nowrap; padding: 20px 0; position: relative; }
+        .gallery-track { display: flex; gap: 20px; width: max-content; }
+        
+        /* Row 1 moves LEFT */
+        .scroll-left { animation: scrollLeft 40s linear infinite; }
+        .gallery-container:hover .scroll-left { animation-play-state: paused; }
+        @keyframes scrollLeft { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+
+        /* Row 2 moves RIGHT */
+        .scroll-right { animation: scrollRight 40s linear infinite; }
+        .gallery-container:hover .scroll-right { animation-play-state: paused; }
+        @keyframes scrollRight { 0% { transform: translateX(-50%); } 100% { transform: translateX(0); } }
+
+        .gallery-img-box {
+            width: 300px; height: 200px; flex-shrink: 0; 
+            border: 3px solid black; box-shadow: 5px 5px 0px black;
+            overflow: hidden; background: white; transition: transform 0.3s;
+        }
+        .gallery-img-box:hover { transform: scale(1.05) rotate(-2deg); z-index: 10; }
+        .gallery-img-box img { width: 100%; height: 100%; object-fit: cover; }
+
+        /* TIMELINE STYLES */
+        .timeline-line { position: absolute; left: 50%; transform: translateX(-50%); width: 4px; height: 100%; background: black; z-index: -1; }
+        .timeline-line-dashed { position: absolute; left: 50%; transform: translateX(-50%); width: 4px; height: 100%; background-image: linear-gradient(to bottom, #000 50%, transparent 50%); background-size: 100% 20px; z-index: -1; }
+
+        /* CHAOS MODE STYLES */
+        body.chaos-active { background-color: #FFFF00 !important; color: blue !important; font-family: 'Comic Sans MS', 'Chalkboard SE', sans-serif !important; animation: shake 0.5s infinite; }
+        body.chaos-active .neo-box { box-shadow: 15px 15px 0px red !important; border: 5px dashed blue !important; background-color: #00FF00 !important; color: red !important; }
+        body.chaos-active .terminal-box { background-color: blue !important; color: yellow !important; border: 5px dotted red !important; }
+        body.chaos-active .gallery-img-box { filter: invert(1); }
+        body.chaos-active .marquee { background: red !important; color: yellow !important; transform: rotate(2deg); }
+        @keyframes shake { 0% { transform: translate(1px, 1px) rotate(0deg); } 50% { transform: translate(-1px, 2px) rotate(-1deg); } 100% { transform: translate(1px, -2px) rotate(-1deg); } }
+
+        /* CLICK EXPLOSION PARTICLES */
+        .click-particle { position: absolute; width: 8px; height: 8px; background: #000; pointer-events: none; transform: translate(-50%, -50%); animation: explode 0.8s ease-out forwards; z-index: 9999; }
+        @keyframes explode { 0% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(var(--tx), var(--ty)) scale(0); } }
+        
+        footer { position: relative; z-index: 50; }
+    </style>
+</head>
+<body class="p-4 md:p-10">
+
+    <canvas id="neural-canvas"></canvas>
+
+    <button id="chaosBtn" onclick="toggleChaos()" class="absolute top-20 right-4 md:right-10 z-[100] bg-yellow-400 neo-box px-4 py-2 font-black text-xs md:text-sm hover:scale-110 transition-transform active:translate-y-1">
+        ⚠️ DANGER: DO NOT PRESS
+    </button>
+
+    <div class="marquee fixed top-0 left-0 w-full z-50 border-b-4 border-black">
+        <div>
+            SYSTEMS OPERATIONAL... PROJECT LEADER & EVENT ORGANIZER... FROM MAKASSAR TO JAKARTA... DID YOU KNOW THE UU PDP IS ACTUALLY PRETTY COOL?... ENTP VIBES ONLY...
+        </div>
+    </div>
+
+    <header class="mt-16 mb-12 reveal">
+        <div class="neo-box bg-[#FF6B6B] p-8 md:p-12 relative" data-tilt data-tilt-glare data-tilt-max-glare="0.5">
+            <div class="typewriter">
+                <h1 class="text-4xl md:text-7xl font-black uppercase tracking-tighter leading-none">
+                    BENAYA J. TUALANGI
+                </h1>
+            </div>
+            <p class="text-xl mt-6 font-bold italic">
+                "Information Systems Student @ ITPLN. I bridge the gap between AI, Business Governance, and chaotic creativity."
+            </p>
+            <div class="mt-8 flex flex-wrap gap-4 items-center">
+                <span class="bg-white p-2 border-2 border-black font-bold text-black">ENTP-T</span>
+                <span class="bg-blue-400 p-2 border-2 border-black font-bold text-black">ITPLN '23</span>
+                <span class="bg-green-400 p-2 border-2 border-black font-bold text-black text-xs md:text-base">📍 Cengkareng, Jakarta</span>
+            </div>
+        </div>
+    </header>
+
+    <section class="mb-16 reveal">
+        <div class="neo-box bg-white p-4 rotate-1 text-center" data-tilt>
+            <p class="text-sm font-bold uppercase text-gray-500">Live Status Check:</p>
+            <h2 id="randomStat" class="text-xl md:text-3xl font-black mt-1">Loading...</h2>
+        </div>
+    </section>
+
+    <section class="mb-20 reveal">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div class="neo-box bg-white p-6 rotate-1" data-tilt>
+                <h3 class="font-black text-2xl underline mb-6 bg-black text-white inline-block px-2">SYSTEM SPECS: BENAYA</h3>
+                <ul class="space-y-4 font-mono text-sm font-bold">
+                    <li class="flex justify-between border-b border-black pb-1"><span class="text-gray-500">OS:</span> <span>ENTP-T (Chaos Engine)</span></li>
+                    <li class="flex justify-between border-b border-black pb-1"><span class="text-gray-500">MODULES:</span> <span class="text-right">Leadership, Adaptability</span></li>
+                    <li class="flex justify-between border-b border-black pb-1"><span class="text-gray-500">FUEL:</span> <span>Iced Americano (3x Daily)</span></li>
+                    <li class="flex justify-between border-b border-black pb-1"><span class="text-gray-500">BUG:</span> <span class="text-red-500">"Forgets to eat when coding."</span></li>
+                </ul>
+            </div>
+            <div class="neo-box bg-[#FF6B6B] p-6 -rotate-1" data-tilt>
+                <h3 class="font-black text-2xl underline mb-6 bg-white text-black inline-block px-2">UNPOPULAR OPINIONS</h3>
+                <ul class="list-disc pl-5 space-y-3 font-bold text-black">
+                    <li>"Documentation is actually fun if you treat it like a love letter to your future self."</li>
+                    <li>"Flutter > React Native. I said what I said."</li>
+                    <li>"Coffee is a food group."</li>
+                    <li>"Light Mode users are suspicious."</li>
+                </ul>
+                <div class="mt-8 text-center"><span class="bg-black text-white text-xs font-mono px-2 py-1">AGREE TO DISAGREE? EMAIL ME.</span></div>
+            </div>
+        </div>
+    </section>
+
+    <section class="mb-20 reveal relative">
+        <h2 class="text-4xl font-black uppercase mb-12 bg-black text-white inline-block px-4 -rotate-1">The Evolution</h2>
+        <div class="relative max-w-4xl mx-auto">
+            <div class="timeline-line hidden md:block" style="height: 85%;"></div>
+            
+            <div class="flex flex-col md:flex-row justify-between items-center mb-10 w-full">
+                <div class="md:w-5/12 text-right order-2 md:order-1 pr-8">
+                    <div class="neo-box bg-pink-300 p-4 -rotate-1 hover:scale-110 transition-transform">
+                        <h3 class="font-black text-xl">Kindergarten (TK)</h3>
+                        <p class="text-xs font-bold text-gray-700">The Beginning | Makassar</p>
+                        <p class="text-sm mt-2 font-bold italic">"I honestly don't know what happened here. I just wanted this timeline to look longer."</p>
+                    </div>
+                </div>
+                <div class="md:w-2/12 flex justify-center order-1 md:order-2 mb-4 md:mb-0"><div class="w-6 h-6 bg-black border-4 border-white rounded-full z-10"></div></div><div class="md:w-5/12 order-3"></div>
+            </div>
+            <div class="flex flex-col md:flex-row justify-between items-center mb-10 w-full">
+                <div class="md:w-5/12 order-2 md:order-1"></div>
+                <div class="md:w-2/12 flex justify-center order-1 md:order-2 mb-4 md:mb-0"><div class="w-6 h-6 bg-[#FF6B6B] border-4 border-black rounded-full z-10"></div></div>
+                <div class="md:w-5/12 order-3 md:order-3 pl-8">
+                    <div class="neo-box bg-white p-4 rotate-1 hover:scale-110 transition-transform">
+                        <h3 class="font-black text-xl">SD Advent Makassar</h3>
+                        <p class="text-xs font-bold text-gray-500">Elementary Era</p>
+                        <p class="text-sm mt-2">"Socializing Beta Test. This is where I started making friends and realizing I like talking."</p>
+                    </div>
+                </div>
+            </div>
+            <div class="flex flex-col md:flex-row justify-between items-center mb-10 w-full">
+                <div class="md:w-5/12 text-right order-2 md:order-1 pr-8">
+                    <div class="neo-box bg-white p-4 -rotate-2 hover:scale-110 transition-transform">
+                        <h3 class="font-black text-xl">SMP Budi Kasih</h3>
+                        <p class="text-xs font-bold text-gray-500">2017 - 2020 | Makassar</p>
+                        <p class="text-sm mt-2">"The Character Arc begins. Developing the base stats for charisma and leadership."</p>
+                    </div>
+                </div>
+                <div class="md:w-2/12 flex justify-center order-1 md:order-2 mb-4 md:mb-0"><div class="w-6 h-6 bg-black border-4 border-white rounded-full z-10"></div></div><div class="md:w-5/12 order-3"></div>
+            </div>
+            <div class="flex flex-col md:flex-row justify-between items-center mb-10 w-full">
+                <div class="md:w-5/12 order-2 md:order-1"></div>
+                <div class="md:w-2/12 flex justify-center order-1 md:order-2 mb-4 md:mb-0"><div class="w-6 h-6 bg-[#FF6B6B] border-4 border-black rounded-full z-10"></div></div>
+                <div class="md:w-5/12 order-3 md:order-3 pl-8">
+                    <div class="neo-box bg-white p-4 rotate-2 hover:scale-110 transition-transform">
+                        <h3 class="font-black text-xl">SMA Katolik Cendrawasih</h3>
+                        <p class="text-xs font-bold text-gray-500">2020 - 2023 | Makassar</p>
+                        <p class="text-sm mt-2">"The Grind. Survived High School logic. Preparing for the big server migration to Jakarta."</p>
+                    </div>
+                </div>
+            </div>
+            <div class="flex flex-col md:flex-row justify-between items-center w-full mb-12">
+                <div class="md:w-5/12 text-right order-2 md:order-1 pr-8">
+                    <div class="neo-box bg-yellow-400 p-4 -rotate-1 hover:scale-110 transition-transform">
+                        <h3 class="font-black text-xl">Institut Teknologi PLN</h3>
+                        <p class="text-xs font-bold text-black">2023 - Present | Jakarta</p>
+                        <p class="text-sm mt-2 font-bold">"The Main Event. Speed-running a degree in Information Systems, AI, and Chaos."</p>
+                    </div>
+                </div>
+                <div class="md:w-2/12 flex justify-center order-1 md:order-2 mb-4 md:mb-0 relative">
+                    <div class="w-8 h-8 bg-black border-4 border-yellow-400 animate-bounce rounded-full z-10"></div>
+                    <div class="timeline-line-dashed absolute top-8 h-20 w-1"></div>
+                </div>
+                <div class="md:w-5/12 order-3"></div>
+            </div>
+            <div class="flex flex-col md:flex-row justify-between items-center w-full">
+                <div class="md:w-5/12 order-2 md:order-1"></div>
+                <div class="md:w-2/12 flex justify-center order-1 md:order-2 mb-4 md:mb-0">
+                    <div class="w-8 h-8 bg-green-400 border-4 border-black animate-pulse rounded-full z-10 shadow-[0_0_15px_#4ade80]"></div>
+                </div>
+                <div class="md:w-5/12 order-3 md:order-3 pl-8">
+                    <div class="neo-box bg-black text-green-400 p-4 rotate-1 border-green-400 hover:scale-110 transition-transform cursor-pointer">
+                        <h3 class="font-black text-xl">The Future (With You?)</h3>
+                        <p class="text-xs font-bold text-white">2026 - Beyond</p>
+                        <p class="text-sm mt-2 font-mono">"Unlock this character. High ROI, infinite ideas. <br> <span class="underline">>> CLICK TO RECRUIT</span>"</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="reveal">
+        <h2 class="text-4xl font-black uppercase mb-10 inline-block bg-black text-white px-4">Selected Chaos</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div class="neo-box bg-white p-6 cursor-pointer" data-tilt data-tilt-glare data-tilt-max-glare="0.8">
+                <span class="text-5xl">🎓</span>
+                <h3 class="text-2xl font-black mt-4 underline glitch-wrapper" data-text="EDUVIBE & EVA">EDUVIBE & EVA</h3>
+                <p class="mt-4 text-sm font-bold">Project Leader for 'Eva' AI Chatbot. Agile methodology & pure grit.</p>
+                <div class="mt-6 flex gap-2"><span class="border-2 border-black px-2 py-1 text-[10px] font-bold">PROJECT LEAD</span></div>
+            </div>
+            <div class="neo-box bg-yellow-400 p-6 -rotate-2 cursor-pointer" data-tilt data-tilt-glare data-tilt-max-glare="0.8">
+                <span class="text-5xl">🎬</span>
+                <h3 class="text-2xl font-black mt-4 underline glitch-wrapper" data-text="MOTION APP">MOTION APP</h3>
+                <p class="mt-4 text-sm font-bold">Netflix for people with taste. Flutter/Dart cross-platform dev.</p>
+                <div class="mt-6 flex gap-2"><span class="border-2 border-black px-2 py-1 text-[10px] font-bold">FLUTTER</span></div>
+            </div>
+            <div class="neo-box bg-blue-400 p-6 rotate-1 cursor-pointer" data-tilt data-tilt-glare data-tilt-max-glare="0.8">
+                <span class="text-5xl">🛡️</span>
+                <h3 class="text-2xl font-black mt-4 underline glitch-wrapper" data-text="UU PDP AUDIT">UU PDP AUDIT</h3>
+                <p class="mt-4 text-sm font-bold">COBIT 2019 + NIST. Making privacy laws actually work.</p>
+                <div class="mt-6 flex gap-2"><span class="border-2 border-black px-2 py-1 text-[10px] font-bold">GOVERNANCE</span></div>
+            </div>
+        </div>
+    </section>
+
+    <section class="mt-20 reveal">
+        <h2 class="text-4xl font-black uppercase mb-8 bg-black text-white inline-block px-4 rotate-1">Life in 4K (or less)</h2>
+        
+        <div class="gallery-container">
+            <div class="gallery-track scroll-left">
+                <div class="gallery-img-box"><img src="1.jpg" alt="Life 1"></div>
+                <div class="gallery-img-box"><img src="3.jpg" alt="Life 2"></div>
+                <div class="gallery-img-box"><img src="4.jpg" alt="Life 3"></div>
+                <div class="gallery-img-box"><img src="5.jpg" alt="Life 4"></div>
+                <div class="gallery-img-box"><img src="6.jpg" alt="Life 5"></div>
+                <div class="gallery-img-box"><img src="7.jpg" alt="Life 6"></div>
+                <div class="gallery-img-box"><img src="8.jpg" alt="Life 7"></div>
+                <div class="gallery-img-box"><img src="9.jpg" alt="Life 8"></div>
+                <div class="gallery-img-box"><img src="10.jpg" alt="Life 1"></div>
+                <div class="gallery-img-box"><img src="11.jpg" alt="Life 2"></div>
+                <div class="gallery-img-box"><img src="12.jpg" alt="Life 3"></div>
+                <div class="gallery-img-box"><img src="13.jpg" alt="Life 4"></div>
+                <div class="gallery-img-box"><img src="14.jpg" alt="Life 5"></div>
+                <div class="gallery-img-box"><img src="15.jpg" alt="Life 7"></div>
+                <div class="gallery-img-box"><img src="16.jpg" alt="Life 8"></div>
+                <div class="gallery-img-box"><img src="17.jpg" alt="Life 9"></div>
+            </div>
+        </div>
+
+        <div class="gallery-container mt-4">
+            <div class="gallery-track scroll-right">
+                <div class="gallery-img-box"><img src="18.jpg" alt="Life 9"></div>
+                <div class="gallery-img-box"><img src="19.jpg" alt="Life 10"></div>
+                <div class="gallery-img-box"><img src="20.jpg" alt="Life 11"></div>
+                <div class="gallery-img-box"><img src="21.jpg" alt="Life 12"></div>
+                <div class="gallery-img-box"><img src="22.jpg" alt="Life 13"></div>
+                <div class="gallery-img-box"><img src="23.jpg" alt="Life 14"></div>
+                <div class="gallery-img-box"><img src="24.jpg" alt="Life 15"></div>
+                <div class="gallery-img-box"><img src="25.jpg" alt="Life 16"></div>
+                <div class="gallery-img-box"><img src="26.jpg" alt="Life 17"></div>
+                <div class="gallery-img-box"><img src="27.jpg" alt="Life 9"></div>
+                <div class="gallery-img-box"><img src="28.jpeg" alt="Life 10"></div>
+                <div class="gallery-img-box"><img src="29.jpg" alt="Life 11"></div>
+                <div class="gallery-img-box"><img src="30.jpg" alt="Life 12"></div>
+                <div class="gallery-img-box"><img src="31.jpg" alt="Life 13"></div>
+                <div class="gallery-img-box"><img src="32.jpg" alt="Life 14"></div>
+                <div class="gallery-img-box"><img src="33.jpg" alt="Life 15"></div>
+                <div class="gallery-img-box"><img src="34.jpg" alt="Life 16"></div>
+                <div class="gallery-img-box"><img src="35.jpg" alt="Life 17"></div>
+            </div>
+        </div>
+    </section>
+
+    <section class="mt-20 mb-20 reveal">
+        <h2 class="text-4xl font-black uppercase mb-8 bg-black text-white inline-block px-4 -rotate-1">The Full Arsenal</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="neo-box bg-[#C3ACD0] p-6 rotate-1" data-tilt>
+                <h3 class="text-xl font-black mb-4 underline">CORE PROCESSING</h3>
+                <div class="flex flex-wrap gap-2 text-xs font-bold">
+                    <span class="bg-white border border-black px-2 py-1">Python</span>
+                    <span class="bg-white border border-black px-2 py-1">JavaScript</span>
+                    <span class="bg-white border border-black px-2 py-1">IoT Dev</span>
+                    <span class="bg-white border border-black px-2 py-1">Computer Vision</span>
+                    <span class="bg-white border border-black px-2 py-1">Deep Learning</span>
+                    <span class="bg-white border border-black px-2 py-1">AI/ML Integration</span>
+                    <span class="bg-white border border-black px-2 py-1">Web Dev</span>
+                    <span class="bg-white border border-black px-2 py-1">Data Analysis</span>
+                </div>
+            </div>
+            <div class="neo-box bg-[#67E8F9] p-6 -rotate-1" data-tilt>
+                <h3 class="text-xl font-black mb-4 underline">VISUAL INTERFACE</h3>
+                <div class="flex flex-wrap gap-2 text-xs font-bold">
+                    <span class="bg-white border border-black px-2 py-1">UI/UX Design</span>
+                    <span class="bg-white border border-black px-2 py-1">Graphic Design</span>
+                    <span class="bg-white border border-black px-2 py-1">Video Editing</span>
+                    <span class="bg-white border border-black px-2 py-1">Gen-Z Branding</span>
+                    <span class="bg-white border border-black px-2 py-1">Content Marketing</span>
+                </div>
+            </div>
+            <div class="neo-box bg-[#FF6B6B] p-6 rotate-1" data-tilt>
+                <h3 class="text-xl font-black mb-4 underline">HUMAN PROTOCOL</h3>
+                <div class="flex flex-wrap gap-2 text-xs font-bold">
+                    <span class="bg-white border border-black px-2 py-1">Storytelling</span>
+                    <span class="bg-white border border-black px-2 py-1">Empathy</span>
+                    <span class="bg-white border border-black px-2 py-1">Adaptability</span>
+                    <span class="bg-white border border-black px-2 py-1">Critical Thinking</span>
+                    <span class="bg-white border border-black px-2 py-1">Project Mgmt</span>
+                    <span class="bg-white border border-black px-2 py-1">Research</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="mb-12 reveal">
+        <h2 class="text-4xl font-black uppercase mb-8 bg-black text-white inline-block px-4 -rotate-1">Initiate Handshake</h2>
+        <div class="terminal-box">
+            <p class="mb-4">>> ENTER TRANSMISSION DETAILS:</p>
+            <form action="mailto:benayajosh@gmail.com" method="post" enctype="text/plain" class="space-y-4">
+                <div>
+                    <label class="block mb-1">>> SENDER_NAME:</label>
+                    <input type="text" name="name" class="w-full bg-[#1a1a1a] border border-[#0f0] p-2 text-[#0f0] focus:outline-none focus:bg-[#222]" placeholder="Type name...">
+                </div>
+                <div>
+                    <label class="block mb-1">>> MESSAGE_PAYLOAD:</label>
+                    <textarea name="message" rows="4" class="w-full bg-[#1a1a1a] border border-[#0f0] p-2 text-[#0f0] focus:outline-none focus:bg-[#222]" placeholder="Type message..."></textarea>
+                </div>
+                <button type="submit" class="bg-[#0f0] text-black font-black px-6 py-2 hover:bg-white transition-colors">
+                    [ EXECUTE_SEND ]
+                </button>
+            </form>
+        </div>
+    </section>
+
+    <section class="mb-20 reveal">
+        <h2 class="text-4xl font-black uppercase mb-8 bg-black text-white inline-block px-4 rotate-1">System Log (FAQ)</h2>
+        <div class="terminal-box text-sm space-y-6">
+            <div>
+                <p class="font-bold border-b border-[#0f0] pb-1 mb-2 text-[#FF6B6B]">>> QUERY: How are you so handsome?</p>
+                <p class="opacity-90">RESPONSE: Of course. It's a combination of great genetics, optimized CSS filters, and unshakeable confidence. Next question.</p>
+            </div>
+            <div>
+                <p class="font-bold border-b border-[#0f0] pb-1 mb-2 text-[#FF6B6B]">>> QUERY: Can you fix my printer?</p>
+                <p class="opacity-90">RESPONSE: I build Neural Networks and design IoT architectures. So... no. But I can make your printer self-aware.</p>
+            </div>
+            <div>
+                <p class="font-bold border-b border-[#0f0] pb-1 mb-2 text-[#FF6B6B]">>> QUERY: Why should we hire you?</p>
+                <p class="opacity-90">RESPONSE: Because you want someone who solves problems you didn't even know you had. Also, I bring donuts on Fridays.</p>
+            </div>
+        </div>
+    </section>
+
+    <footer class="mt-20 mb-20 text-center border-t-4 border-black pt-10 reveal">
+        <p class="text-3xl font-black uppercase underline decoration-pink-500 italic hover:scale-110 transition-transform cursor-pointer" data-value="LET'S BUILD SOMETHING CHAOTIC.">LET'S BUILD SOMETHING CHAOTIC.</p>
+        
+        <div class="mt-8 flex flex-wrap justify-center gap-4 font-bold items-center">
+            
+            <a href="mailto:benayajosh@gmail.com" class="neo-box px-3 py-2 bg-white hover:bg-yellow-400 transition-colors">✉️ Email</a>
+            <a href="https://instagram.com/benaya.jr" target="_blank" class="neo-box px-3 py-2 bg-white hover:bg-pink-400 transition-colors">📸 Instagram</a>
+            
+            <a href="https://github.com/benayajr" target="_blank" class="neo-box px-3 py-2 bg-white hover:bg-gray-400 transition-colors">🐙 GitHub</a>
+            <a href="https://www.linkedin.com/in/benaya-joshrael-3b3506303" target="_blank" class="neo-box px-3 py-2 bg-white hover:bg-blue-400 transition-colors">💼 LinkedIn</a>
+
+            <a href="cv.pdf" download target="_blank" class="group relative inline-flex items-center justify-center px-6 py-2 font-black text-white transition-all duration-200 bg-black border-2 border-black neo-box hover:bg-gray-900 cursor-pointer">
+                <span class="relative group-hover:hidden text-white">[ DOWNLOAD CV ]</span>
+                <span class="relative hidden group-hover:block text-green-400">>> DOWNLOADING...</span>
+            </a>
+
+        </div>
+    </footer>
+
+    <script>
+        // 1. CHAOS BUTTON
+        function toggleChaos() {
+            const body = document.body;
+            body.classList.toggle('chaos-active');
+            const boxes = document.querySelectorAll('.neo-box');
+            const btn = document.getElementById('chaosBtn');
+
+            if (body.classList.contains('chaos-active')) {
+                boxes.forEach(box => {
+                    const rot = Math.random() * 20 - 10;
+                    const x = Math.random() * 50 - 25;
+                    const y = Math.random() * 50 - 25;
+                    box.style.transform = `translate(${x}px, ${y}px) rotate(${rot}deg)`;
+                });
+                btn.innerText = "😱 FIX IT! FIX IT!";
+                btn.style.backgroundColor = "#ff0000";
+                btn.style.color = "white";
+            } else {
+                boxes.forEach(box => { box.style.transform = ''; });
+                btn.innerText = "⚠️ DANGER: DO NOT PRESS";
+                btn.style.backgroundColor = "#facc15";
+                btn.style.color = "black";
+            }
+        }
+
+        // 2. RANDOM STATS
+        const stats = [ "Currently consuming: 3rd Cup of Coffee ☕", "Bugs Fixed Today: 0 (It's a feature)", "Hours spent on CSS: 4.5", "Tabs Open: 42 (Send help)", "Thinking about: How to automate my sleep schedule" ];
+        document.getElementById("randomStat").innerText = stats[Math.floor(Math.random() * stats.length)];
+
+        // 3. INITIALIZE TILT
+        VanillaTilt.init(document.querySelectorAll(".neo-box"), { max: 15, speed: 400, glare: true, "max-glare": 0.5 });
+
+        // 4. SCROLL REVEAL
+        function reveal() {
+            var reveals = document.querySelectorAll(".reveal");
+            for (var i = 0; i < reveals.length; i++) {
+                var windowHeight = window.innerHeight;
+                var elementTop = reveals[i].getBoundingClientRect().top;
+                if (elementTop < windowHeight - 100) reveals[i].classList.add("active");
+            }
+        }
+        window.addEventListener("scroll", reveal); reveal();
+
+        // 5. CLICK EXPLOSIONS
+        document.addEventListener('click', (e) => {
+            const colors = ['#000', '#FF6B6B', '#FACC15', '#4ADE80'];
+            for(let i=0; i<8; i++) {
+                const particle = document.createElement('div');
+                particle.classList.add('click-particle');
+                particle.style.left = e.pageX + 'px';
+                particle.style.top = e.pageY + 'px';
+                particle.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                const tx = (Math.random() * 150 - 75) + 'px';
+                const ty = (Math.random() * 150 - 75) + 'px';
+                particle.style.setProperty('--tx', tx);
+                particle.style.setProperty('--ty', ty);
+                document.body.appendChild(particle);
+                setTimeout(() => particle.remove(), 800);
+            }
+        });
+
+        // 6. NEURAL NETWORK BACKGROUND
+        const canvas = document.getElementById('neural-canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        let particlesArray;
+        let mouse = { x: null, y: null, radius: (canvas.height/80) * (canvas.width/80) };
+        window.addEventListener('mousemove', (event) => { mouse.x = event.x; mouse.y = event.y; });
+
+        class Particle {
+            constructor(x, y, directionX, directionY, size, color) {
+                this.x = x; this.y = y; this.directionX = directionX; this.directionY = directionY;
+                this.size = size; this.color = color;
+            }
+            draw() { ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2, false); ctx.fillStyle = '#000'; ctx.fill(); }
+            update() {
+                if (this.x > canvas.width || this.x < 0) this.directionX = -this.directionX;
+                if (this.y > canvas.height || this.y < 0) this.directionY = -this.directionY;
+                let dx = mouse.x - this.x; let dy = mouse.y - this.y; let distance = Math.sqrt(dx*dx + dy*dy);
+                if (distance < mouse.radius + this.size) {
+                    if (mouse.x < this.x && this.x < canvas.width - this.size * 10) this.x += 10;
+                    if (mouse.x > this.x && this.x > this.size * 10) this.x -= 10;
+                    if (mouse.y < this.y && this.y < canvas.height - this.size * 10) this.y += 10;
+                    if (mouse.y > this.y && this.y > this.size * 10) this.y -= 10;
+                }
+                this.x += this.directionX; this.y += this.directionY; this.draw();
+            }
+        }
+        function init() {
+            particlesArray = [];
+            let numberOfParticles = (canvas.height * canvas.width) / 9000;
+            for (let i = 0; i < numberOfParticles; i++) {
+                let size = (Math.random() * 5) + 1;
+                let x = (Math.random() * ((innerWidth - size * 2) - (size * 2)) + size * 2);
+                let y = (Math.random() * ((innerHeight - size * 2) - (size * 2)) + size * 2);
+                let directionX = (Math.random() * 2) - 1;
+                let directionY = (Math.random() * 2) - 1;
+                particlesArray.push(new Particle(x, y, directionX, directionY, size, '#000'));
+            }
+        }
+        function animate() {
+            requestAnimationFrame(animate); ctx.clearRect(0,0,innerWidth, innerHeight);
+            for (let i = 0; i < particlesArray.length; i++) { particlesArray[i].update(); } connect();
+        }
+        function connect() {
+            let opacityValue = 1;
+            for (let a = 0; a < particlesArray.length; a++) {
+                for (let b = a; b < particlesArray.length; b++) {
+                    let distance = ((particlesArray[a].x - particlesArray[b].x) * (particlesArray[a].x - particlesArray[b].x)) + ((particlesArray[a].y - particlesArray[b].y) * (particlesArray[a].y - particlesArray[b].y));
+                    if (distance < (canvas.width/7) * (canvas.height/7)) {
+                        opacityValue = 1 - (distance/20000); ctx.strokeStyle = 'rgba(0,0,0,' + opacityValue + ')';
+                        ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(particlesArray[a].x, particlesArray[a].y); ctx.lineTo(particlesArray[b].x, particlesArray[b].y); ctx.stroke();
+                    }
+                }
+            }
+        }
+        init(); animate();
+        window.addEventListener('resize', () => { canvas.width = innerWidth; canvas.height = innerHeight; init(); });
+    </script>
+</body>
+</html>
